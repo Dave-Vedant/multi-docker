@@ -1,0 +1,59 @@
+version: '3'
+services:
+
+  postgres:
+    image: 'postgres:latest'  #when ever docker start will start postgres service with latest version
+    environment:
+      - POSTGRES_PASSWORD=postgres_password
+      
+  redis:
+    image: 'redis:latest'
+
+  nginx:
+    restart: always             # always restart even if crash, then when doing retrying (refresh)  then run again. (restarting policy out of four)
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./nginx
+    ports:
+      - '3050:80'              # local machine(local host) will 3050 and listen to 80
+
+  api:                           #changed from server because its default word other where and it makes confuse in future so better to say api (as real work)
+    build: 
+      dockerfile: Dockerfile.dev
+      context: ./server
+    volumes:
+      - /app/node_modules
+      - ./server:/app       #copy server files to app files (server(local) to app(docker-container))
+    environment:
+      - REDIS_HOST= redis
+      - REDIS_PORT= 6379     # default in redis-docker hub documentation
+      - PGUSER= postgres
+      - PGHOST= postgres
+      - PGDATABASE= postgres
+      - PGPASSWORD= postgres_password  
+      - PGPORT= 5432
+
+  client:
+    stdin_open: true         # (because, react give reply code exit with code 0)
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./client
+    volumes:
+      - /app/node_modules
+      - ./client:/app
+
+  worker:
+    build:                          #build docker file using dockefile.dev and find it in ./worker
+      dockerfile: Dockerfile.dev
+      context: ./worker
+    volumes:
+      - /app/node_modules  #make app/node_module directory 
+      - ./worker:/app      #copy everthing with newly made app
+    environment:                 #(because, worker answering "Calculated nothing")
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+#NOTE: 
+## BUG
+# no space between inage name 'postgres:latest'...
+# ports - <space> 'local_host:nginx_listening_port'
